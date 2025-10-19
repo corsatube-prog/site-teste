@@ -10,12 +10,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+
       - uses: actions/setup-node@v3
         with:
           node-version: '20'
+
       - run: npm install
-      - run: npm install -g vite gh-pages   # instala globalmente
+      - run: npm install -g vite gh-pages
+
       - run: git config --global user.name "GitHub Actions"
       - run: git config --global user.email "actions@github.com"
+
       - run: vite build
-      - run: gh-pages -d dist
+
+      - run: npx gh-pages -d dist --repo https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
