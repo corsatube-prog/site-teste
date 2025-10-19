@@ -14,5 +14,6 @@ jobs:
         with:
           node-version: '20'
       - run: npm install
-      - run: npx vite build
+      - run: npm install -g vite      # INSTALA VITE GLOBALMENTE
+      - run: vite build               # agora roda direto
       - run: npx gh-pages -d dist
