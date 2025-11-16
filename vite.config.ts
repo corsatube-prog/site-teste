@@ -1,6 +1,8 @@
 import { defineConfig } from 'vite';
 
+const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1];
+
 export default defineConfig(({ command }) => ({
-  // GitHub Pages serves the site from /<repo-name>/, so the assets must be referenced relatively.
-  base: command === 'build' ? './' : '/',
+  // Use the repository name when building inside GitHub Actions so the deployed site works at /<repo>/.
+  base: command === 'build' && repoName ? `/${repoName}/` : '/',
 }));
