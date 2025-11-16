@@ -1,0 +1,23 @@
+@use '@photo-sphere-viewer/core/index.scss' as psv with (
+  $buttons-height: 40px,
+  $zoom-range-width: 200px,
+  $zoom-range-tickness: 3px,
+  $zoom-range-diameter: 20px,
+  $tooltip-padding: .50rem,
+  $panel-menu-item-padding: .75rem 1rem,
+  $navbar-height: 80px
+);
+@use '@photo-sphere-viewer/markers-plugin/index.scss' as psvMarkers;
+@use '@photo-sphere-viewer/gallery-plugin/index.scss' as psvGallery;
+
+html, body, #viewer {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  font-family: sans-serif;
+}
+
+/* Override gallery plugin title font per $title-font doc */
+.psv-gallery-item-title {
+  font-size: 2rem;
+}

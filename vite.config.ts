@@ -1,5 +1,8 @@
 import { defineConfig } from 'vite';
 
+const repoName = process.env.GITHUB_REPOSITORY?.split('/')[1];
+const isGithubPages = process.env.GITHUB_PAGES === 'true';
+
 export default defineConfig({
-  base: '/site-teste/'  // substitua pelo nome do seu repositório no GitHub
+  base: isGithubPages && repoName ? `/${repoName}/` : '/',
 });
