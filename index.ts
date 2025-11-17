@@ -8,6 +8,13 @@ const baseUrl = 'https://photo-sphere-viewer-data.netlify.app/assets/';
 const basePath =
   (import.meta.env.BASE_URL?.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL || '/'}/`);
 const withBasePath = (relative: string) => `${basePath}${relative.replace(/^\//, '')}`;
+const galleryMediaQuery =
+  typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)') : null;
+const galleryDesktopThumbnailSize = { width: 350, height: 200 };
+const galleryMobileThumbnailSize = { width: 200, height: 100 };
+const isMobileViewport = () => galleryMediaQuery?.matches ?? false;
+const getGalleryThumbnailSize = () =>
+  isMobileViewport() ? galleryMobileThumbnailSize : galleryDesktopThumbnailSize;
 // (no forced zoom behavior) kept minimal: viewer controls handle zoom normally
 
 // Lista de panoramas existentes em public/ (descobertos manualmente)
@@ -78,8 +85,6 @@ const prettifyFilename = (file: string) => {
 
 // === 1. Markers por panorama ===
 const markersByPanorama: Record<string, any[]> = {
-  'sphere.jpg': [],
-  'quarto.jpg': [],
 };
 
 // Garante que cada panorama local tenha uma entrada (mesmo vazia)
@@ -137,9 +142,8 @@ const viewer = new Viewer({
     GalleryPlugin.withConfig({
       visibleOnLoad: true,
       hideOnClick: false,
-      // Set a larger thumbnail size using the Size type expected by the plugin
-      // Size = { width: number; height: number }
-      thumbnailSize: { width: 350, height: 200 },
+      // Use larger thumbnails on desktop but fall back to the default size on mobile
+      thumbnailSize: getGalleryThumbnailSize(),
       items: galleryItems,
       navigationArrows: true
     } as any),
@@ -149,6 +153,22 @@ const viewer = new Viewer({
 // getPlugin returns an abstract type; cast to any so we can call plugin-specific methods
 const markersPlugin = viewer.getPlugin(MarkersPlugin) as any;
 const galleryPlugin = viewer.getPlugin(GalleryPlugin) as any;
+const ensureMobileZoom = () => {
+  if (isMobileViewport()) {
+    viewer.zoom(0);
+  }
+};
+const syncGalleryThumbnails = () => {
+  galleryPlugin.setOptions({
+    thumbnailSize: getGalleryThumbnailSize(),
+  });
+};
+galleryMediaQuery?.addEventListener('change', () => {
+  syncGalleryThumbnails();
+  ensureMobileZoom();
+});
+syncGalleryThumbnails();
+ensureMobileZoom();
 
 // Track whether the user clicked the gallery button so we can distinguish
 // intentional toggles from automatic plugin behavior (select events).
@@ -183,8 +203,8 @@ function changeScene(panoramaName: string) {
     // use the filename (panoFile) to lookup markersByPanorama — panoPath is a full URL
     const markers = markersByPanorama[panoFile] || [];
     markersPlugin.setMarkers(markers);
-    // Garantir que o zoom sempre volte para o nível mínimo configurado
-    viewer.zoom(0);
+    // Garantir que o zoom volte para o nível mínimo configurado em telas pequenas
+    ensureMobileZoom();
     viewer.removeEventListener('panorama-loaded', handler);
   };
 
@@ -257,5 +277,6 @@ document.addEventListener('click', (ev) => {
 // === 6. Carrega os markers iniciais ===
 viewer.addEventListener('ready', () => {
   markersPlugin.setMarkers(markersByPanorama['sphere.jpg']);
+  ensureMobileZoom();
 });
 

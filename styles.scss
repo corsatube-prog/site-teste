@@ -21,3 +21,62 @@ html, body, #viewer {
 .psv-gallery-item-title {
   font-size: 2rem;
 }
+
+@media (max-width: 768px) {
+  .psv-navbar {
+    height: 40px;
+    bottom: -40px;
+  }
+
+  .psv--has-navbar .psv-panel {
+    height: calc(100% - 40px);
+  }
+
+  .psv-button {
+    height: 20px;
+    width: 20px;
+    padding: 10px;
+  }
+
+  .psv-move-button + .psv-move-button {
+    margin-left: -10px;
+  }
+
+  .psv-custom-button {
+    min-width: 20px;
+  }
+
+  .psv-zoom-range.psv-button {
+    width: 80px;
+    height: 1px;
+    margin: 10px 0;
+    padding: 9.5px 0;
+  }
+
+  .psv-zoom-range-line {
+    width: 80px;
+    height: 1px;
+  }
+
+  .psv-zoom-range-handle {
+    width: 7px;
+    height: 7px;
+    top: -3px;
+  }
+
+  .psv-caption-content {
+    padding: 10px;
+  }
+
+  .psv-notification {
+    bottom: -40px;
+  }
+
+  .psv-notification--visible {
+    bottom: 80px;
+  }
+
+  .psv-gallery-item-title {
+    font-size: 1rem;
+  }
+}
