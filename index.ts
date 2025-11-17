@@ -3,6 +3,7 @@ import './styles.scss';
 import { Viewer } from '@photo-sphere-viewer/core';
 import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import { GalleryPlugin } from '@photo-sphere-viewer/gallery-plugin';
+import { VirtualTourPlugin } from '@photo-sphere-viewer/virtual-tour-plugin';
 
 const baseUrl = 'https://photo-sphere-viewer-data.netlify.app/assets/';
 const basePath =
@@ -10,7 +11,7 @@ const basePath =
 const withBasePath = (relative: string) => `${basePath}${relative.replace(/^\//, '')}`;
 const galleryMediaQuery =
   typeof window !== 'undefined' ? window.matchMedia('(max-width: 768px)') : null;
-const galleryDesktopThumbnailSize = { width: 350, height: 200 };
+const galleryDesktopThumbnailSize = { width: 180, height: 110 };
 const galleryMobileThumbnailSize = { width: 200, height: 100 };
 const isMobileViewport = () => galleryMediaQuery?.matches ?? false;
 const getGalleryThumbnailSize = () =>
@@ -119,16 +120,54 @@ const galleryItems = galleryOrder.map((file) => {
   const displayName = friendlyGalleryNames[file] ?? prettifyFilename(file);
   return {
     id: file.replace(/\W+/g, '-'),
+    file,
     name: displayName,
     panorama: panoramaPath,
     thumbnail,
   };
 });
 
+const virtualTourNodes = galleryItems.map((item, index) => {
+  const prev = galleryItems[(index - 1 + galleryItems.length) % galleryItems.length];
+  const next = galleryItems[(index + 1) % galleryItems.length];
+  const links = [];
+  if (galleryItems.length > 1) {
+    links.push({
+      nodeId: next.id,
+      position: { yaw: Math.PI, pitch: 0 },
+      arrowStyle: { className: 'tour-arrow-next' },
+    });
+    if (index !== 0) {
+      links.push({
+        nodeId: prev.id,
+        position: { yaw: 0, pitch: 0 },
+        arrowStyle: { className: 'tour-arrow-prev' },
+      });
+    }
+  }
+  return {
+    id: item.id,
+    name: item.name,
+    caption: item.name,
+    panorama: item.panorama,
+    thumbnail: item.thumbnail,
+    markers: markersByPanorama[item.file] || [],
+    data: { file: item.file },
+    links,
+  };
+});
+
+const virtualTourNodeMap = new Map(virtualTourNodes.map((node) => [node.id, node]));
+const initialNodeId = virtualTourNodes[0]?.id;
+
 // === 2. Viewer ===
+const initialPanorama = initialNodeId
+  ? virtualTourNodeMap.get(initialNodeId)?.panorama ?? withBasePath('salavista1.jpg')
+  : withBasePath('salavista1.jpg');
+
 const viewer = new Viewer({
   container: 'viewer',
-  panorama: withBasePath('salavista1.jpg'),
+  panorama: initialPanorama,
   caption: 'Parc national du Mercantour <b>&copy; Damien Sorel</b>',
   loadingImg: baseUrl + 'loader.gif',
   touchmoveTwoFingers: false,
@@ -147,12 +186,26 @@ const viewer = new Viewer({
       items: galleryItems,
       navigationArrows: true
     } as any),
+    VirtualTourPlugin.withConfig({
+      transitionOptions: () => ({
+        effect: 'fade',
+        rotation: false,
+        rotateTo: null,
+        zoomTo: null,
+      }),
+    }),
   ],
 });
 
 // getPlugin returns an abstract type; cast to any so we can call plugin-specific methods
 const markersPlugin = viewer.getPlugin(MarkersPlugin) as any;
 const galleryPlugin = viewer.getPlugin(GalleryPlugin) as any;
+const virtualTourPlugin = viewer.getPlugin(VirtualTourPlugin) as any;
+const applyMarkersForFallback = (file?: string) => {
+  if (!file || !markersPlugin || virtualTourPlugin) return;
+  const markers = markersByPanorama[file] || [];
+  markersPlugin.setMarkers(markers);
+};
 const ensureMobileZoom = () => {
   if (isMobileViewport()) {
     viewer.zoom(0);
@@ -169,6 +222,9 @@ galleryMediaQuery?.addEventListener('change', () => {
 });
 syncGalleryThumbnails();
 ensureMobileZoom();
+virtualTourPlugin?.addEventListener('node-changed', () => {
+  ensureMobileZoom();
+});
 
 // Track whether the user clicked the gallery button so we can distinguish
 // intentional toggles from automatic plugin behavior (select events).
@@ -177,11 +233,25 @@ let lastClickedGalleryButton = false;
 // no saved views/zoom logic — keep viewer's native behavior for zoom and resizing
 
 // === 3. Função para trocar panorama e aplicar markers ===
-function changeScene(panoramaName: string) {
-  // Determine how to build the final panorama path:
-  // - absolute URL (http/https): use as-is
-  // - leading slash (e.g. '/quarto.jpg'): treat as local asset served from the dev server (public/)
-  // - otherwise: assume it's a filename and prefix with baseUrl (remote asset)
+function resolveNode(target: string | undefined) {
+  if (!target) return undefined;
+  if (virtualTourNodeMap.has(target)) return virtualTourNodeMap.get(target);
+  return virtualTourNodes.find(
+    (node) => node.panorama === target || node.data?.file === target,
+  );
+}
+
+function changeScene(target: string) {
+  if (!target) return;
+  const resolvedNode = resolveNode(target);
+  if (virtualTourPlugin && resolvedNode) {
+    virtualTourPlugin.setCurrentNode(resolvedNode.id).catch((err: any) => {
+      console.error('VirtualTour setCurrentNode error:', err);
+    });
+    return;
+  }
+
+  const panoramaName = resolvedNode?.data?.file ?? target;
   let panoFile: string;
   let panoPath: string;
 
@@ -189,7 +259,6 @@ function changeScene(panoramaName: string) {
     panoFile = panoramaName;
     panoPath = panoramaName;
   } else if (panoramaName.startsWith('/')) {
-    // local public asset, keep the leading slash for the loader
     panoFile = panoramaName.replace(/^\//, '');
     panoPath = withBasePath(panoFile);
   } else {
@@ -197,20 +266,14 @@ function changeScene(panoramaName: string) {
     panoPath = localFiles.has(panoFile) ? withBasePath(panoFile) : baseUrl + panoFile;
   }
 
-  // Listen for the panorama-loaded event before calling setPanorama so the handler
-  // is guaranteed to run for the new panorama. Remove the handler after it's called.
   const handler = () => {
-    // use the filename (panoFile) to lookup markersByPanorama — panoPath is a full URL
-    const markers = markersByPanorama[panoFile] || [];
-    markersPlugin.setMarkers(markers);
-    // Garantir que o zoom volte para o nível mínimo configurado em telas pequenas
+    applyMarkersForFallback(panoFile);
     ensureMobileZoom();
     viewer.removeEventListener('panorama-loaded', handler);
   };
 
   viewer.addEventListener('panorama-loaded', handler);
 
-  // cast options to any to avoid strict type errors from the library typings
   viewer
     .setPanorama(
       panoPath,
@@ -220,16 +283,17 @@ function changeScene(panoramaName: string) {
       } as any,
     )
     .catch((err: any) => {
-    // fallback: remove the handler if setPanorama fails
-    viewer.removeEventListener('panorama-loaded', handler);
-    console.error('setPanorama error:', err);
-  });
+      viewer.removeEventListener('panorama-loaded', handler);
+      console.error('setPanorama error:', err);
+    });
 }
 
 // === 5. Clique na galeria ===
 galleryPlugin.addEventListener('select', ({ item }: any) => {
-  // change panorama
-  changeScene(item.panorama);
+  const nextTarget = item?.id ?? item?.panorama;
+  if (nextTarget) {
+    changeScene(nextTarget);
+  }
 
   // Re-apply the 'open' state after selection unless the user explicitly
   // clicked the gallery button (in which case they intended to toggle it).
@@ -276,7 +340,15 @@ document.addEventListener('click', (ev) => {
 
 // === 6. Carrega os markers iniciais ===
 viewer.addEventListener('ready', () => {
-  markersPlugin.setMarkers(markersByPanorama['sphere.jpg']);
+  if (virtualTourPlugin) {
+    try {
+      virtualTourPlugin.setNodes(virtualTourNodes, initialNodeId);
+    } catch (err) {
+      console.error('VirtualTour setNodes error:', err);
+    }
+  } else if (initialNodeId) {
+    applyMarkersForFallback(virtualTourNodeMap.get(initialNodeId)?.data?.file);
+  }
   ensureMobileZoom();
 });
 

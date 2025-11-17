@@ -1,14 +1,15 @@
 @use '@photo-sphere-viewer/core/index.scss' as psv with (
-  $buttons-height: 40px,
-  $zoom-range-width: 200px,
-  $zoom-range-tickness: 3px,
-  $zoom-range-diameter: 20px,
-  $tooltip-padding: .50rem,
-  $panel-menu-item-padding: .75rem 1rem,
-  $navbar-height: 80px
+  $buttons-height: 22px,
+  $zoom-range-width: 120px,
+  $zoom-range-tickness: 2px,
+  $zoom-range-diameter: 10px,
+  $tooltip-padding: .4rem .6rem,
+  $panel-menu-item-padding: .45rem .7rem,
+  $navbar-height: 52px
 );
 @use '@photo-sphere-viewer/markers-plugin/index.scss' as psvMarkers;
 @use '@photo-sphere-viewer/gallery-plugin/index.scss' as psvGallery;
+@use '@photo-sphere-viewer/virtual-tour-plugin/index.scss' as psvVirtual;
 
 html, body, #viewer {
   width: 100%;
@@ -19,7 +20,26 @@ html, body, #viewer {
 
 /* Override gallery plugin title font per $title-font doc */
 .psv-gallery-item-title {
-  font-size: 2rem;
+  font-size: 1rem;
+}
+
+.psv-virtual-tour-link {
+  background: rgba(0, 0, 0, 0.55) !important;
+  border-radius: 50% !important;
+  width: 66px !important;
+  height: 66px !important;
+}
+
+.psv-virtual-tour-link svg {
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.6));
+}
+
+.psv-virtual-tour-link.tour-arrow-next svg {
+  color: #35c759 !important; /* green for forward */
+}
+
+.psv-virtual-tour-link.tour-arrow-prev svg {
+  color: #ff3b30 !important; /* red for back */
 }
 
 @media (max-width: 768px) {

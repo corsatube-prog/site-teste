@@ -9,7 +9,8 @@
   "dependencies": {
     "@photo-sphere-viewer/core": "^5.14.0",
     "@photo-sphere-viewer/gallery-plugin": "^5.14.0",
-    "@photo-sphere-viewer/markers-plugin": "^5.14.0"
+    "@photo-sphere-viewer/markers-plugin": "^5.14.0",
+    "@photo-sphere-viewer/virtual-tour-plugin": "^5.14.0"
   },
   "devDependencies": {
     "sass": "^1.94.0",
