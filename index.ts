@@ -5,6 +5,9 @@ import { MarkersPlugin } from '@photo-sphere-viewer/markers-plugin';
 import { GalleryPlugin } from '@photo-sphere-viewer/gallery-plugin';
 
 const baseUrl = 'https://photo-sphere-viewer-data.netlify.app/assets/';
+const basePath =
+  (import.meta.env.BASE_URL?.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL || '/'}/`);
+const withBasePath = (relative: string) => `${basePath}${relative.replace(/^\//, '')}`;
 // (no forced zoom behavior) kept minimal: viewer controls handle zoom normally
 
 // Lista de panoramas existentes em public/ (descobertos manualmente)
@@ -102,9 +105,9 @@ Object.keys(markersByPanorama).forEach(pushUnique);
 
 const galleryItems = galleryOrder.map((file) => {
   const isLocal = localFiles.has(file);
-  const panoramaPath = isLocal ? '/' + file : baseUrl + file;
+  const panoramaPath = isLocal ? withBasePath(file) : baseUrl + file;
   // try to use a thumbnail with `-thumb` suffix if present locally, otherwise fall back
-  const thumbLocal = '/' + file.replace(/\.jpg$|\.png$/i, '.jpg');
+  const thumbLocal = withBasePath(file.replace(/\.jpg$|\.png$/i, '.jpg'));
   const thumbRemote = baseUrl + file.replace(/\.jpg$|\.png$/i, '.jpg');
   // if local thumbnail not present, fallback to panoramaPath as thumbnail
   const thumbnail = isLocal ? thumbLocal : thumbRemote;
@@ -120,7 +123,7 @@ const galleryItems = galleryOrder.map((file) => {
 // === 2. Viewer ===
 const viewer = new Viewer({
   container: 'viewer',
-  panorama: 'salavista1.jpg',
+  panorama: withBasePath('salavista1.jpg'),
   caption: 'Parc national du Mercantour <b>&copy; Damien Sorel</b>',
   loadingImg: baseUrl + 'loader.gif',
   touchmoveTwoFingers: false,
@@ -168,10 +171,10 @@ function changeScene(panoramaName: string) {
   } else if (panoramaName.startsWith('/')) {
     // local public asset, keep the leading slash for the loader
     panoFile = panoramaName.replace(/^\//, '');
-    panoPath = panoramaName; // e.g. '/quarto.jpg' served from public/
+    panoPath = withBasePath(panoFile);
   } else {
     panoFile = panoramaName;
-    panoPath = baseUrl + panoFile;
+    panoPath = localFiles.has(panoFile) ? withBasePath(panoFile) : baseUrl + panoFile;
   }
 
   // Listen for the panorama-loaded event before calling setPanorama so the handler
